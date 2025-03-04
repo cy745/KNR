@@ -30,3 +30,5 @@ dependencyResolutionManagement {
 
 include(":composeApp")
 include(":knr-core")
+include(":knr-ksp-compiler")
+include(":knr-gradle-plugin")

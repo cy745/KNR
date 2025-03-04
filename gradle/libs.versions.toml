@@ -1,4 +1,7 @@
 [versions]
+group = "io.github.cy745.knr"
+version = "0.0.1"
+
 agp = "8.6.1"
 androidx-activityCompose = "1.10.1"
 androidx-ui-tooling = "1.7.8"
@@ -8,6 +11,8 @@ koin = "4.0.0"
 kotlin = "2.1.10"
 ktor = "3.0.0"
 navigationCompose = "2.8.0-alpha10"
+ksp = "2.1.10-1.0.29"
+junit_version = "4.13.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
@@ -24,6 +29,12 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 
+junit = { module = "junit:junit", version.ref = "junit_version" }
+ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
+ksp-gradle = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-gradle-plugin-api = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin-api", version.ref = "kotlin" }
+
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
@@ -31,3 +42,9 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+
+kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+build-config = { id = "com.github.gmazzo.buildconfig", version = "5.4.0" }
+vanniktech-publish = { id = "com.vanniktech.maven.publish", version = "0.30.0" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+dokka = { id = "org.jetbrains.dokka", version = "2.0.0" }
