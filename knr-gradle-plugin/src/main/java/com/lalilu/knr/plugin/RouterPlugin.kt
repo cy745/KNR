@@ -2,13 +2,12 @@ package com.lalilu.knr.plugin
 
 import com.google.devtools.ksp.gradle.KspExtension
 import com.lalilu.knr.BuildConfig
-
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
-import org.jetbrains.kotlin.gradle.dsl.KotlinCompile
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class RouterPlugin : Plugin<Project> {
     companion object {
