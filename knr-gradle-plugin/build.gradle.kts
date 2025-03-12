@@ -29,8 +29,6 @@ dependencies {
     implementation(libs.ksp.gradle)
     implementation(libs.kotlin.gradle.plugin)
     implementation(libs.kotlin.gradle.plugin.api)
-
-    implementation(project(":knr-core"))
 }
 
 gradlePlugin {
@@ -87,5 +85,5 @@ mavenPublishing {
     }
 
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-    signAllPublications()
+//    signAllPublications()
 }

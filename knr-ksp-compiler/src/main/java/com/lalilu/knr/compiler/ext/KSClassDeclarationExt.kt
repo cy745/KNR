@@ -14,3 +14,9 @@ internal inline fun <reified T> KSAnnotated.requestAnnotation(): KSAnnotation? {
         it.typeDeclaration.asClassDeclaration().qualifiedName?.asString() == T::class.qualifiedName
     }
 }
+
+internal fun KSAnnotated.requireAnnotation(qualifiedName: String): KSAnnotation? {
+    return annotations.firstOrNull {
+        it.typeDeclaration.asClassDeclaration().qualifiedName?.asString() == qualifiedName
+    }
+}

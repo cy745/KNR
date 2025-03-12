@@ -13,8 +13,6 @@ java {
 }
 
 dependencies {
-    implementation(project(":knr-core"))
-
     // 用于测试ksp处理器
     testImplementation("dev.zacsweers.kctfork:ksp:0.5.1")
     testImplementation("org.jetbrains.kotlin:kotlin-compiler-embeddable")
@@ -72,5 +70,5 @@ mavenPublishing {
     }
 
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-    signAllPublications()
+//    signAllPublications()
 }

@@ -9,6 +9,9 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.symbol.Nullability
+import com.lalilu.knr.compiler.Constants
+import com.lalilu.knr.compiler.ext.combinations
+import com.lalilu.knr.compiler.ext.requireAnnotation
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.LambdaTypeName
@@ -19,11 +22,6 @@ import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toTypeName
-import com.zhangke.krouter.annotation.Destination
-import com.zhangke.krouter.annotation.Param
-import com.lalilu.knr.compiler.ext.combinations
-import com.lalilu.knr.compiler.ext.requestAnnotation
-import com.lalilu.knr.compiler.ext.requireAnnotation
 
 fun buildGetRouterMapFunc(
     collectedMap: List<KSClassDeclaration>,
@@ -71,13 +69,25 @@ fun CodeBlock.Builder.buildRouterCondition(
     block: CodeBlock.Builder.(KSClassDeclaration) -> Unit
 ) {
     collectedMap.forEach { clazz ->
-        val annotation = clazz.requireAnnotation<Destination>()
-        val routers = annotation.arguments
-            .firstOrNull { it.name?.asString() == "router" }
-            ?.let { (it.value as? ArrayList<*>)?.filterIsInstance<String>() }
+        val annotation = clazz
+            .requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_DESTINATION)
             ?: return@forEach
 
-        val baseRouterCondition = routers
+        val route = annotation.arguments
+            .firstOrNull { it.name?.asString() == "route" }
+            ?.value as? String
+
+        val routes = annotation.arguments
+            .firstOrNull { it.name?.asString() == "routes" }
+            ?.let { (it.value as? ArrayList<*>)?.filterIsInstance<String>() }
+            ?: emptyList()
+
+        if (route == null && routes.isEmpty()) {
+            throw IllegalArgumentException("Route or Routes must be set")
+        }
+
+        val baseRouterCondition = (listOf(route) + routes)
+            .distinct()
             .joinToString(separator = ", ") { "\"$it\"" }
 
         this.beginControlFlow("$baseRouterCondition -> { params ->")
@@ -199,7 +209,7 @@ fun CodeBlock.Builder.buildRouterPropertiesInject(clazz: KSClassDeclaration) {
     val properties = clazz.getDeclaredProperties()
         .mapNotNull { property ->
             property.takeIf { it.isMutable } // 需要确保属性是可变的
-                ?.requestAnnotation<Param>()
+                ?.requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_PARAM)
                 ?.let { property to it }
         }
         .toList()
@@ -271,7 +281,8 @@ fun CodeBlock.Builder.buildRouterPropertiesInject(clazz: KSClassDeclaration) {
 private val routeParamsNameCache = mutableMapOf<KSNode, String?>()
 val KSValueParameter.routeParamName: String?
     get() = routeParamsNameCache.getOrPut(this) {
-        val paramAnnotation = this.requestAnnotation<Param>()
+        val paramAnnotation = this
+            .requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_PARAM)
 
         return paramAnnotation?.arguments
             ?.firstOrNull { it.name?.asString() == "name" }
@@ -282,7 +293,8 @@ val KSValueParameter.routeParamName: String?
 
 val KSPropertyDeclaration.routeParamName: String?
     get() = routeParamsNameCache.getOrPut(this) {
-        val paramAnnotation = this.requestAnnotation<Param>()
+        val paramAnnotation = this
+            .requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_PARAM)
 
         return paramAnnotation?.arguments
             ?.firstOrNull { it.name?.asString() == "name" }

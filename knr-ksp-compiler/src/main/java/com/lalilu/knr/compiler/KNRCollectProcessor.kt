@@ -8,7 +8,6 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
-import com.lalilu.knr.core.Destination
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.PropertySpec
@@ -52,7 +51,8 @@ open class KNRCollectProcessor(
     }
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        val destinations = resolver.getSymbolsWithAnnotation(Destination::class.qualifiedName!!)
+        val destinations = resolver
+            .getSymbolsWithAnnotation(Constants.QUALIFIED_NAME_DESTINATION)
             .map { it as KSClassDeclaration }
             .toList()
 

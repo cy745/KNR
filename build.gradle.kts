@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.androidLibrary) apply false
@@ -10,4 +12,26 @@ plugins {
     alias(libs.plugins.dokka) apply false
     alias(libs.plugins.build.config) apply false
     alias(libs.plugins.vanniktech.publish) apply false
+}
+
+buildscript {
+    if (properties["local.development.enabled"] == "true") {
+        val testGroup = libs.versions.group.get()
+        val testVersion = libs.versions.version.get()
+
+        dependencies { classpath("$testGroup:plugin:$testVersion") }
+    }
+}
+
+if (properties["local.development.enabled"] == "true") {
+    ext { set("targetInjectProjectName", "composeApp") }
+    apply(plugin = "${libs.versions.group.get()}.plugin")
+}
+
+allprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_1_8
+        }
+    }
 }

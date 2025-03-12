@@ -7,9 +7,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.lifecycle.SavedStateHandle
-import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -18,39 +17,44 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.jetbrains.kmpapp.screens.detail.DetailScreen
 import com.jetbrains.kmpapp.screens.list.ListScreen
+import com.lalilu.knr.core.DeepLink
+import com.lalilu.knr.core.LocalNavigator
+import com.lalilu.knr.core.Navigator
 import com.lalilu.knr.core.Screen
+import com.lalilu.knr.core.annotation.Destination
 import kotlinx.serialization.Serializable
 
 @Serializable
-object ListDestination : Screen {
+@Destination(
+    route = "/list",
+    deeplink = [DeepLink(path = "/home")]
+)
+data object ListDestination : Screen {
 
     @Composable
     override fun Content(savedStateHandle: SavedStateHandle) {
-        val navController = LocalNavigator.current
+        val navigator = LocalNavigator.current
 
         ListScreen(navigateToDetails = { objectId ->
-            navController.navigate(DetailDestination(objectId))
+            navigator.controller.navigate(DetailDestination(objectId))
         })
     }
 }
 
 @Serializable
+@Destination("/list/{objectId}")
 data class DetailDestination(val objectId: Int) : Screen {
 
     @Composable
     override fun Content(savedStateHandle: SavedStateHandle) {
-        val navController = LocalNavigator.current
+        val navigator = LocalNavigator.current
 
         DetailScreen(
             objectId = objectId,
-            navigateBack = {
-                navController.popBackStack()
-            }
+            navigateBack = { navigator.controller.popBackStack() }
         )
     }
 }
-
-val LocalNavigator = staticCompositionLocalOf<NavController> { error("No Navigator provided") }
 
 @Composable
 fun App() {
@@ -59,18 +63,24 @@ fun App() {
     ) {
         Surface {
             val navController: NavHostController = rememberNavController()
-            CompositionLocalProvider(LocalNavigator provides navController) {
+            val navigator = remember(navController) { Navigator(navController) }
+
+            CompositionLocalProvider(LocalNavigator provides navigator) {
                 NavHost(navController = navController, startDestination = ListDestination) {
-                    composableBind<ListDestination>(this)
-                    composableBind<DetailDestination>(this)
+                    inject()
                 }
             }
         }
     }
 }
 
-inline fun <reified T : Screen> composableBind(builder: NavGraphBuilder) {
-    builder.composable<T> { backStackEntry ->
-        backStackEntry.toRoute<T>().Content(backStackEntry.savedStateHandle)
+fun NavGraphBuilder.inject() {
+    composable<ListDestination> { backStackEntry ->
+        backStackEntry.toRoute<ListDestination>()
+            .Content(backStackEntry.savedStateHandle)
+    }
+    composable<DetailDestination> { backStackEntry ->
+        backStackEntry.toRoute<DetailDestination>()
+            .Content(backStackEntry.savedStateHandle)
     }
 }
