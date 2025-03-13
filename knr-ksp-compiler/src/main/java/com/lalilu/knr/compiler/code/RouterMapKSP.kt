@@ -1,17 +1,16 @@
 package com.lalilu.knr.compiler.code
 
-import com.google.devtools.ksp.getDeclaredProperties
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSNode
-import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
-import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.symbol.Nullability
 import com.lalilu.knr.compiler.BuildingContext
 import com.lalilu.knr.compiler.Constants
 import com.lalilu.knr.compiler.ext.combinations
+import com.lalilu.knr.compiler.ext.getDynamicParams
+import com.lalilu.knr.compiler.ext.getRoutesFromAnnotation
 import com.lalilu.knr.compiler.ext.requireAnnotation
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
@@ -52,31 +51,12 @@ fun BuildingContext.buildInsertRouteFunc(): FunSpec {
 fun BuildingContext.buildInitRouterBlock(
     collectedMap: List<KSClassDeclaration>,
 ): CodeBlock {
-    val map = collectedMap.mapNotNull { clazz ->
-        val annotation = clazz
-            .requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_DESTINATION)
-            ?: return@mapNotNull null
-
-        val route = annotation.arguments
-            .firstOrNull { it.name?.asString() == "route" }
-            ?.value as? String
-
-        val routes = annotation.arguments
-            .firstOrNull { it.name?.asString() == "routes" }
-            ?.let { (it.value as? ArrayList<*>)?.filterIsInstance<String>() }
-            ?: emptyList()
-
-        if (route == null && routes.isEmpty()) {
-            throw IllegalArgumentException("Route or Routes must be set")
-        }
-
-        clazz to (listOf(route!!) + routes)
-    }.toMap()
+    val map = collectedMap.associateWith { getRoutesFromAnnotation(it) }
 
     return buildCodeBlock {
         addStatement("println(\"Init Router Map\")")
 
-        map.forEach { clazz, routes ->
+        map.forEach { (clazz, routes) ->
             beginControlFlow(
                 "insertRoute(%L) { params ->",
                 routes.joinToString { "\"$it\"" }
@@ -112,6 +92,9 @@ fun CodeBlock.Builder.buildRouterConstructorInject(clazz: KSClassDeclaration) {
     val parameters = clazz.primaryConstructor?.parameters
         ?: emptyList()
 
+    val routes = getRoutesFromAnnotation(clazz)
+    val dynamicParameterNames = getDynamicParams(routes)
+
     // 初始化参数
     parameters.forEach { parameter ->
         val parameterName = parameter.routeParamName // 参数的映射名称
@@ -120,16 +103,17 @@ fun CodeBlock.Builder.buildRouterConstructorInject(clazz: KSClassDeclaration) {
         val targetInjectName = parameter.name?.asString() ?: ""
 
         addStatement(
-            "val %L = params.handleParams<%T>(%S)",
+            "val %L = params.handleParams<%T>(name = %S, castable = %L)",
             "${targetInjectName}_$parameterName",
             targetInjectType,
             parameterName,
+            parameterName in dynamicParameterNames
         )
     }
 
     // 检测校验参数
     parameters.forEach { parameter ->
-        val paramAnnotation = parameter.annotations.firstOrNull()
+        val paramAnnotation = parameter.requireAnnotation(Constants.QUALIFIED_NAME_PARAM)
         val parameterType = parameter.type.resolve() // 参数的类型
         val parameterName = parameter.routeParamName // 参数的映射名称
         val targetInjectName = parameter.name?.asString() ?: ""
@@ -212,82 +196,6 @@ fun CodeBlock.Builder.buildRouterConstructorInject(clazz: KSClassDeclaration) {
         endControlFlow()
     }
     endControlFlow()
-
-    buildRouterPropertiesInject(clazz)
-}
-
-fun CodeBlock.Builder.buildRouterPropertiesInject(clazz: KSClassDeclaration) {
-    // 只处理当前类中可见的参数，不处理从父类继承来的
-    val properties = clazz.getDeclaredProperties()
-        .mapNotNull { property ->
-            property.takeIf { it.isMutable } // 需要确保属性是可变的
-                ?.requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_PARAM)
-                ?.let { property to it }
-        }
-        .toList()
-
-    // 若没有需要注入的参数，则直接返回
-    if (properties.isEmpty()) return
-
-    // 处理Property相关数据注入逻辑
-    beginControlFlow(".apply {")
-
-    // 初始化参数
-    properties.forEach { (property, _) ->
-        val parameterName = property.routeParamName // 参数的映射名称
-        val parameterType = property.type.resolve() // 参数的类型
-        val targetInjectName = property.simpleName.asString()
-        val targetInjectType = parameterType.requireParameterizedClassName()
-
-        addStatement(
-            "val %L = params.handleParams<%T>(%S)",
-            "${targetInjectName}_$parameterName",
-            targetInjectType,
-            parameterName,
-        )
-    }
-
-    // 检查校验参数
-    properties.forEach { (property, param) ->
-        val parameterName = property.routeParamName // 参数的映射名称
-        val parameterType = property.type.resolve() // 参数的类型
-        val targetInjectName = property.simpleName.asString()
-
-        val isNullable = parameterType.nullability != Nullability.NOT_NULL
-
-        // 是否必须填写的参数，若此property标记为lateinit则说明必须提供值
-        val isRequired = param.arguments
-            .firstOrNull { it.name?.asString() == "required" }
-            ?.value == true || property.modifiers.contains(Modifier.LATEINIT)
-
-        val flags = mutableListOf<String>()
-        flags.add("ParamState.CHECK_TYPE_FLAG")
-        if (isRequired) flags.add("ParamState.CHECK_PROVIDED_FLAG")
-        if (!isNullable) flags.add("ParamState.CHECK_IS_NOT_NULL_FLAG")
-        val flagsCode = flags.joinToString(separator = " or ")
-
-        addStatement("${targetInjectName}_${parameterName}.checkSelf(%L)", flagsCode)
-    }
-
-    // 注入参数
-    properties.forEach { (property, _) ->
-        val parameterName = property.routeParamName // 参数的映射名称
-        val parameterType = property.type.resolve() // 参数的类型
-        val targetInjectType = parameterType.requireParameterizedClassName()
-        val targetInjectName = property.simpleName.asString()
-
-        val isNullable = parameterType.nullability != Nullability.NOT_NULL
-        var sentence =
-            "this.${property.simpleName.asString()} = (${targetInjectName}_${parameterName} as ParamState.Provided<*>).value as %T"
-
-        if (isNullable) {
-            sentence = sentence.replace(".value", "?.value")
-                .replace(" as ", " as? ")
-        }
-
-        addStatement(sentence, targetInjectType)
-    }
-    endControlFlow()
 }
 
 private val routeParamsNameCache = mutableMapOf<KSNode, String?>()
@@ -301,18 +209,6 @@ val KSValueParameter.routeParamName: String?
             ?.let { it.value as? String }
             ?.takeIf(String::isNotBlank)
             ?: name?.asString()
-    }
-
-val KSPropertyDeclaration.routeParamName: String?
-    get() = routeParamsNameCache.getOrPut(this) {
-        val paramAnnotation = this
-            .requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_PARAM)
-
-        return paramAnnotation?.arguments
-            ?.firstOrNull { it.name?.asString() == "name" }
-            ?.let { it.value as? String }
-            ?.takeIf(String::isNotBlank)
-            ?: simpleName.asString()
     }
 
 fun KSType.requireParameterizedClassName() = toClassName().let { typeName ->

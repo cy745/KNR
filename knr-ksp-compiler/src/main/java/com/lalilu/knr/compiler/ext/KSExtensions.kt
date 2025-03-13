@@ -47,3 +47,32 @@ internal fun getDeclarationFromArgument(argument: KSValueArgument): KSClassDecla
         else -> null
     }
 }
+
+internal fun getRoutesFromAnnotation(clazz: KSClassDeclaration): List<String> {
+    val annotation = clazz
+        .requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_DESTINATION)
+        ?: return emptyList()
+
+    val route = annotation.arguments
+        .firstOrNull { it.name?.asString() == "route" }
+        ?.value as? String
+
+    val routes = annotation.arguments
+        .firstOrNull { it.name?.asString() == "routes" }
+        ?.let { (it.value as? ArrayList<*>)?.filterIsInstance<String>() }
+        ?: emptyList()
+
+    if (route == null && routes.isEmpty()) {
+        throw IllegalArgumentException("Route or Routes must be set")
+    }
+
+    return listOfNotNull(route, *routes.toTypedArray())
+}
+
+fun getDynamicParams(routes: List<String>): List<String> {
+    return routes.flatMap { route ->
+        route.split("/")
+            .filter { it.startsWith("{") && it.endsWith("}") }
+            .map { it.removeSurrounding("{", "}") }
+    }
+}
