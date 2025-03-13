@@ -17,6 +17,7 @@ class RouterPlugin : Plugin<Project> {
         const val COMPILER_TYPE_KEY = "knrType"
         const val COMPILER_TYPE_INJECT = "inject"
         const val COMPILER_TYPE_COLLECT = "collect"
+        val EXCLUDE_PROJECT = arrayOf("knr-core", "knr-gradle-plugin", "knr-ksp-compiler")
     }
 
     override fun apply(target: Project) {
@@ -63,7 +64,7 @@ class RouterPlugin : Plugin<Project> {
 
                 goThroughProjectDependency(
                     root = project,
-                    doInject = { project != it }
+                    doInject = { project != it && it.name !in EXCLUDE_PROJECT }
                 )
             }
         }
