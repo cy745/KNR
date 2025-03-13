@@ -22,7 +22,9 @@ data object ListDestination : Screen {
         val navigator = LocalNavigator.current
 
         ListScreen(navigateToDetails = { objectId ->
-            navigator.navigate(route = "/list/$objectId")
+            navigator.route("/list/test/")
+                .with("objectId", "$objectId")
+                .jump()
         })
     }
 }

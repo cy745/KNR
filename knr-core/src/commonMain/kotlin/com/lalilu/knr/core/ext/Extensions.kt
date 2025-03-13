@@ -27,3 +27,17 @@ inline fun <reified T : Any> NavGraphBuilder.knrComposable(
         content = content
     )
 }
+
+internal fun paramsFromPath(path: String): Map<String, String> {
+    return path.takeIf { it.contains('?') }
+        ?.substringAfterLast('?')
+        ?.split('&')
+        ?.mapNotNull {
+            val list = it.split('=')
+                .takeIf { it.isNotEmpty() }
+                ?: return@mapNotNull null
+
+            list[0] to (list.getOrNull(1) ?: "")
+        }?.toMap()
+        ?: emptyMap()
+}
