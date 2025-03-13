@@ -12,8 +12,10 @@ import com.google.devtools.ksp.symbol.Nullability
 import com.lalilu.knr.compiler.Constants
 import com.lalilu.knr.compiler.ext.combinations
 import com.lalilu.knr.compiler.ext.requireAnnotation
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.asClassName
@@ -28,13 +30,12 @@ fun buildGetRouterMapFunc(
 ): FunSpec {
     val mapType = LambdaTypeName.get(
         receiver = null,
-        returnType = Any::class.asTypeName(),
+        returnType = ClassName.bestGuess(Constants.QUALIFIED_NAME_SCREEN),
         parameters = arrayOf(
             Map::class.asClassName()
                 .parameterizedBy(
                     String::class.asTypeName(),
-                    Any::class.asTypeName()
-                        .copy(nullable = true)
+                    Any::class.asTypeName().copy(nullable = true)
                 )
         )
     )
@@ -56,8 +57,9 @@ fun buildGetRouterMapFunc(
         .endControlFlow()
         .build()
 
-    return FunSpec.builder("getMap")
+    return FunSpec.builder("getRoute")
         .addParameter("baseRoute", type = String::class)
+        .addModifiers(KModifier.OVERRIDE)
         .returns(mapType)
         .addCode(codeBlock)
         .build()

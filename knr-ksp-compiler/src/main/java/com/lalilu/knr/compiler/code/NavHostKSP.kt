@@ -59,6 +59,16 @@ private fun BuildingContext.buildNavHostCodeBlock(
 ): CodeBlock {
     return CodeBlock.builder()
         .addStatement(
+            "val navigator = %M(navController) { %T(this, navController) }",
+            MemberName("androidx.compose.runtime", "remember"),
+            ClassName.bestGuess(Constants.QUALIFIED_NAME_NAVIGATOR),
+        )
+        .beginControlFlow(
+            "%M(%T provides navigator) {",
+            MemberName("androidx.compose.runtime", "CompositionLocalProvider"),
+            ClassName.bestGuess(Constants.QUALIFIED_NAME_LOCAL_NAVIGATOR),
+        )
+        .addStatement(
             "%T(modifier = modifier, startDestination = startDestination, navController = navController, builder = %L)",
             ClassName.bestGuess("androidx.navigation.compose.NavHost"),
             CodeBlock.builder()
@@ -68,6 +78,7 @@ private fun BuildingContext.buildNavHostCodeBlock(
                 .endControlFlow()
                 .build()
         )
+        .endControlFlow()
         .build()
 }
 

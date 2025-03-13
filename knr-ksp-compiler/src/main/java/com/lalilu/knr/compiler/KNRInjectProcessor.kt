@@ -14,6 +14,7 @@ import com.lalilu.knr.compiler.code.buildNavHostFunc
 import com.lalilu.knr.compiler.code.buildParamStateClass
 import com.lalilu.knr.compiler.ext.asClassDeclaration
 import com.lalilu.knr.compiler.ext.requireAnnotation
+import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
@@ -70,6 +71,7 @@ class KNRInjectProcessor(
         val className = "KNRInjectMap"
         val classSpec = TypeSpec.objectBuilder(className)
             .addKdoc(CLASS_KDOC)
+            .addSuperinterface(ClassName.bestGuess(Constants.QUALIFIED_NAME_PROVIDER))
             .addFunction(buildingContext.buildNavHostFunc(collectedMap))
             .addFunction(buildGetRouterMapFunc(collectedMap))
             .addType(buildParamStateClass())
