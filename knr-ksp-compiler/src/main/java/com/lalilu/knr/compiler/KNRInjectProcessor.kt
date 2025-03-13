@@ -50,20 +50,22 @@ class KNRInjectProcessor(
             throw IllegalStateException("All Destination classes must have @Serializable annotation")
         }
 
-        writeToFile(environment.codeGenerator, collectedMap)
+        val buildingContext = object : BuildingContext {
+            override fun getResolver(): Resolver = resolver
+            override fun getEnvironment(): SymbolProcessorEnvironment = environment
+        }
+
+        writeToFile(buildingContext, environment.codeGenerator, collectedMap)
 
         return resultList
     }
 
     private fun writeToFile(
+        buildingContext: BuildingContext,
         codeGenerator: CodeGenerator,
         collectedMap: List<KSClassDeclaration>
     ) {
         if (collectedMap.isEmpty()) return
-        val buildingContext = object : BuildingContext {
-            override fun getCodeGenerator(): CodeGenerator = codeGenerator
-            override fun getEnvironment(): SymbolProcessorEnvironment = environment
-        }
 
         val className = "KNRInjectMap"
         val classSpec = TypeSpec.objectBuilder(className)

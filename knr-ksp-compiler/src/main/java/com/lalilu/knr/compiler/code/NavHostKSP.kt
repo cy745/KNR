@@ -2,7 +2,11 @@ package com.lalilu.knr.compiler.code
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.lalilu.knr.compiler.BuildingContext
+import com.lalilu.knr.compiler.Constants
+import com.lalilu.knr.compiler.ext.classToObject
+import com.lalilu.knr.compiler.ext.getDeclarationFromArgument
 import com.lalilu.knr.compiler.ext.getStartDestination
+import com.lalilu.knr.compiler.ext.requireAnnotation
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
@@ -28,11 +32,18 @@ private fun BuildingContext.buildNavHostComposableBind(
     collectMap: List<KSClassDeclaration>
 ) = builder.apply {
     for (destination in collectMap) {
+        val transitionClazz = destination.requireAnnotation(Constants.QUALIFIED_NAME_DESTINATION)
+            ?.arguments
+            ?.firstOrNull { it.name?.asString() == "transition" && it.value != null }
+            ?.takeIf { it.value != Unit::class }
+            ?.let { getDeclarationFromArgument(it) }
+
         add("\n")
         beginControlFlow(
-            "%M<%T>{ backStackEntry ->",
-            MemberName("androidx.navigation.compose", "composable"),
-            destination.toClassName()
+            "%M<%T> (transition = %L) { backStackEntry ->",
+            MemberName("com.lalilu.knr.core.ext", "knrComposable"),
+            destination.toClassName(),
+            classToObject(clazz = transitionClazz)
         )
         add(
             "backStackEntry.%M<%T>().Content(backStackEntry.savedStateHandle)",
