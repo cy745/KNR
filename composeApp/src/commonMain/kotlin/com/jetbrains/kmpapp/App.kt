@@ -1,6 +1,7 @@
 package com.jetbrains.kmpapp
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
@@ -8,13 +9,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.SavedStateHandle
-import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
 import com.jetbrains.kmpapp.screens.detail.DetailScreen
 import com.jetbrains.kmpapp.screens.list.ListScreen
 import com.lalilu.knr.core.DeepLink
@@ -22,12 +20,14 @@ import com.lalilu.knr.core.LocalNavigator
 import com.lalilu.knr.core.Navigator
 import com.lalilu.knr.core.Screen
 import com.lalilu.knr.core.annotation.Destination
+import com.lalilu.knr.generated.KNRInjectMap
 import kotlinx.serialization.Serializable
 
 @Serializable
 @Destination(
     route = "/list",
-    deeplink = [DeepLink(path = "/home")]
+    deeplink = [DeepLink(path = "/home")],
+    start = true
 )
 data object ListDestination : Screen {
 
@@ -66,21 +66,11 @@ fun App() {
             val navigator = remember(navController) { Navigator(navController) }
 
             CompositionLocalProvider(LocalNavigator provides navigator) {
-                NavHost(navController = navController, startDestination = ListDestination) {
-                    inject()
-                }
+                KNRInjectMap.NavHostBind(
+                    modifier = Modifier.fillMaxSize(),
+                    navController = navController
+                )
             }
         }
-    }
-}
-
-fun NavGraphBuilder.inject() {
-    composable<ListDestination> { backStackEntry ->
-        backStackEntry.toRoute<ListDestination>()
-            .Content(backStackEntry.savedStateHandle)
-    }
-    composable<DetailDestination> { backStackEntry ->
-        backStackEntry.toRoute<DetailDestination>()
-            .Content(backStackEntry.savedStateHandle)
     }
 }

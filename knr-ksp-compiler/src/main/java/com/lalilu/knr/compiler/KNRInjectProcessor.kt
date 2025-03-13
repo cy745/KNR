@@ -8,13 +8,15 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.lalilu.knr.compiler.code.buildGetRouterMapFunc
+import com.lalilu.knr.compiler.code.buildHandleParamsFunction
+import com.lalilu.knr.compiler.code.buildNavHostFunc
+import com.lalilu.knr.compiler.code.buildParamStateClass
+import com.lalilu.knr.compiler.ext.asClassDeclaration
+import com.lalilu.knr.compiler.ext.requireAnnotation
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
-import com.lalilu.knr.compiler.code.buildGetRouterMapFunc
-import com.lalilu.knr.compiler.code.buildHandleParamsFunction
-import com.lalilu.knr.compiler.code.buildParamStateClass
-import com.lalilu.knr.compiler.ext.asClassDeclaration
 
 /**
  * 真正实现路由注入的处理器，继承自 [KNRCollectProcessor]
@@ -40,7 +42,13 @@ class KNRInjectProcessor(
 
         val collectedMap = propertiesItems
             .map { it.type.resolve().declaration.asClassDeclaration() }
+            .filter { it.requireAnnotation(Constants.QUALIFIED_NAME_DESTINATION) != null }
             .toList()
+
+        // 确保所有类都有 @Serializable 注解
+        if (collectedMap.any { it.requireAnnotation("kotlinx.serialization.Serializable") == null }) {
+            throw IllegalStateException("All Destination classes must have @Serializable annotation")
+        }
 
         writeToFile(environment.codeGenerator, collectedMap)
 
@@ -52,10 +60,15 @@ class KNRInjectProcessor(
         collectedMap: List<KSClassDeclaration>
     ) {
         if (collectedMap.isEmpty()) return
+        val buildingContext = object : BuildingContext {
+            override fun getCodeGenerator(): CodeGenerator = codeGenerator
+            override fun getEnvironment(): SymbolProcessorEnvironment = environment
+        }
 
         val className = "KNRInjectMap"
         val classSpec = TypeSpec.objectBuilder(className)
             .addKdoc(CLASS_KDOC)
+            .addFunction(buildingContext.buildNavHostFunc(collectedMap))
             .addFunction(buildGetRouterMapFunc(collectedMap))
             .addType(buildParamStateClass())
             .addFunction(buildHandleParamsFunction())
