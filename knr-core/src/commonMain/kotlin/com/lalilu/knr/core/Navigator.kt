@@ -10,13 +10,13 @@ class Navigator(
     val controller: NavHostController
 ) {
     fun navigate(route: String, params: Map<String, Any?> = emptyMap()) {
-        val route = runCatching { provider.getRoute(route) }
+        val routeWithParams = runCatching { provider.getRoute(route) }
             .getOrElse {
                 it.printStackTrace()
                 null
             }
 
-        val screen = route?.invoke(params)
+        val screen = routeWithParams?.let { it.first.invoke(params + it.second) }
             ?: return
 
         controller.navigate(screen)

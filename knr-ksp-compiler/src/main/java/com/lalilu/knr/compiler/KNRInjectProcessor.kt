@@ -8,10 +8,13 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.lalilu.knr.compiler.code.buildGetRouterMapFunc
+import com.lalilu.knr.compiler.code.buildGetRouterFunc
 import com.lalilu.knr.compiler.code.buildHandleParamsFunction
+import com.lalilu.knr.compiler.code.buildInitRouterBlock
+import com.lalilu.knr.compiler.code.buildInsertRouteFunc
 import com.lalilu.knr.compiler.code.buildNavHostFunc
 import com.lalilu.knr.compiler.code.buildParamStateClass
+import com.lalilu.knr.compiler.code.buildTrieRootProperty
 import com.lalilu.knr.compiler.ext.asClassDeclaration
 import com.lalilu.knr.compiler.ext.requireAnnotation
 import com.squareup.kotlinpoet.ClassName
@@ -72,8 +75,11 @@ class KNRInjectProcessor(
         val classSpec = TypeSpec.objectBuilder(className)
             .addKdoc(CLASS_KDOC)
             .addSuperinterface(ClassName.bestGuess(Constants.QUALIFIED_NAME_PROVIDER))
+            .addProperty(buildingContext.buildTrieRootProperty())
             .addFunction(buildingContext.buildNavHostFunc(collectedMap))
-            .addFunction(buildGetRouterMapFunc(collectedMap))
+            .addFunction(buildingContext.buildInsertRouteFunc())
+            .addFunction(buildingContext.buildGetRouterFunc())
+            .addInitializerBlock(buildingContext.buildInitRouterBlock(collectedMap))
             .addType(buildParamStateClass())
             .addFunction(buildHandleParamsFunction())
             .build()

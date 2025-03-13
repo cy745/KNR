@@ -9,6 +9,7 @@ import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSValueParameter
 import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.symbol.Nullability
+import com.lalilu.knr.compiler.BuildingContext
 import com.lalilu.knr.compiler.Constants
 import com.lalilu.knr.compiler.ext.combinations
 import com.lalilu.knr.compiler.ext.requireAnnotation
@@ -16,64 +17,45 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
-import com.squareup.kotlinpoet.LambdaTypeName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
-import com.squareup.kotlinpoet.asClassName
-import com.squareup.kotlinpoet.asTypeName
+import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.buildCodeBlock
 import com.squareup.kotlinpoet.joinToCode
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.toTypeName
 
-fun buildGetRouterMapFunc(
-    collectedMap: List<KSClassDeclaration>,
-): FunSpec {
-    val mapType = LambdaTypeName.get(
-        receiver = null,
-        returnType = ClassName.bestGuess(Constants.QUALIFIED_NAME_SCREEN),
-        parameters = arrayOf(
-            Map::class.asClassName()
-                .parameterizedBy(
-                    String::class.asTypeName(),
-                    Any::class.asTypeName().copy(nullable = true)
-                )
-        )
-    )
+fun BuildingContext.buildTrieRootProperty(): PropertySpec {
+    val type = ClassName.bestGuess("com.lalilu.knr.core.ext.TrieNode")
+        .parameterizedBy(ClassName.bestGuess(Constants.QUALIFIED_NAME_ROUTE))
 
-    val codeBlock = CodeBlock.builder()
-        .beginControlFlow("return when (baseRoute)")
-        .apply {
-            buildRouterCondition(
-                collectedMap = collectedMap,
-                block = { clazz ->
-                    buildRouterConstructorInject(clazz)
-                }
-            )
-        }
-        .addStatement(
-            "else -> throw IllegalArgumentException(%P)",
-            "Route [\$baseRoute] Not Found."
-        )
-        .endControlFlow()
-        .build()
-
-    return FunSpec.builder("getRoute")
-        .addParameter("baseRoute", type = String::class)
-        .addModifiers(KModifier.OVERRIDE)
-        .returns(mapType)
-        .addCode(codeBlock)
+    return PropertySpec
+        .builder(name = "root", type = type)
+        .addModifiers(KModifier.PRIVATE)
+        .initializer(CodeBlock.of("TrieNode.createRootNode<Route>()"))
         .build()
 }
 
+fun BuildingContext.buildInsertRouteFunc(): FunSpec {
+    return FunSpec.builder("insertRoute")
+        .addParameter(name = "routes", type = String::class, modifiers = listOf(KModifier.VARARG))
+        .addParameter(name = "route", type = ClassName.bestGuess(Constants.QUALIFIED_NAME_ROUTE))
+        .addModifiers(KModifier.OVERRIDE)
+        .addCode(buildCodeBlock {
+            beginControlFlow("routes.forEach { pattern ->")
+            add("val parts = pattern.split('/').filter { it.isNotEmpty() }\n")
+            add("root.insert(pattern, parts, route, 0)\n")
+            endControlFlow()
+        })
+        .build()
+}
 
-fun CodeBlock.Builder.buildRouterCondition(
+fun BuildingContext.buildInitRouterBlock(
     collectedMap: List<KSClassDeclaration>,
-    block: CodeBlock.Builder.(KSClassDeclaration) -> Unit
-) {
-    collectedMap.forEach { clazz ->
+): CodeBlock {
+    val map = collectedMap.mapNotNull { clazz ->
         val annotation = clazz
             .requireAnnotation(qualifiedName = Constants.QUALIFIED_NAME_DESTINATION)
-            ?: return@forEach
+            ?: return@mapNotNull null
 
         val route = annotation.arguments
             .firstOrNull { it.name?.asString() == "route" }
@@ -88,14 +70,42 @@ fun CodeBlock.Builder.buildRouterCondition(
             throw IllegalArgumentException("Route or Routes must be set")
         }
 
-        val baseRouterCondition = (listOf(route) + routes)
-            .distinct()
-            .joinToString(separator = ", ") { "\"$it\"" }
+        clazz to (listOf(route!!) + routes)
+    }.toMap()
 
-        this.beginControlFlow("$baseRouterCondition -> { params ->")
-            .apply { block(clazz) }
-            .endControlFlow()
+    return buildCodeBlock {
+        addStatement("println(\"Init Router Map\")")
+
+        map.forEach { clazz, routes ->
+            beginControlFlow(
+                "insertRoute(%L) { params ->",
+                routes.joinToString { "\"$it\"" }
+            )
+            buildRouterConstructorInject(clazz)
+            endControlFlow()
+        }
     }
+}
+
+fun BuildingContext.buildGetRouterFunc(): FunSpec {
+    val mapType = ClassName.bestGuess(Constants.QUALIFIED_NAME_ROUTE_WITH_PARAMS)
+
+    val codeBlock = CodeBlock.builder()
+        .addStatement("val searchParts = baseRoute.split('/').filter { it.isNotEmpty() }")
+        .addStatement(
+            "return root.search(searchParts, 0)\n" +
+                    "?.let { result -> result.first.route?.let { it to result.second } }\n" +
+                    "?: throw IllegalArgumentException(%P)",
+            "Route [\$baseRoute] Not Found."
+        )
+        .build()
+
+    return FunSpec.builder("getRoute")
+        .addParameter("baseRoute", type = String::class)
+        .addModifiers(KModifier.OVERRIDE)
+        .returns(mapType)
+        .addCode(codeBlock)
+        .build()
 }
 
 fun CodeBlock.Builder.buildRouterConstructorInject(clazz: KSClassDeclaration) {
